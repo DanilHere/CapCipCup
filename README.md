@@ -5,6 +5,7 @@ sniffs packets with Scapy, detects TCP and UDP port scans, and reports
 them through a terminal dashboard and a LAN web dashboard.
 
 > Detect and Protect Your System or Network
+> Stil Development
 
 ## Features
 
@@ -129,7 +130,7 @@ CapCipCup/
 ```
 
 ## Roadmap
-
+> If you would like to contribute, please don't hesitate to submit a pull request.
 - [x] persistent event logging (`logs/alerts.json`)
 - [x] configurable thresholds (`config.yaml`)
 - [x] session windows with idle timeout

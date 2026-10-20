@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <title>CapCipCup IDS</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #e3fdfd;
+            --panel: #cbf1f5;
+            --panel-header: #a6e3e9;
+            --border: #71c9ce;
+            --text: #1b2a33;
+            --muted: #46626b;
+            --dim: #7ea2ab;
+            --accent: #1f7a8c;
+            --green: #2f8a5a;
+            --yellow: #b07d2a;
+            --red: #c44a5a;
+            --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo,
+                    Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        /* ---- Topbar ---- */
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            height: 60px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel);
+        }
+
+        .brand-name {
+            font-family: var(--mono);
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .brand-name .dim {
+            color: var(--dim);
+        }
+
+        .brand-sub {
+            margin-left: 12px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .tb-btn {
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: none;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 12px;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .tb-btn:hover {
+            color: var(--text);
+            border-color: var(--muted);
+        }
+
+        .clock {
+            font-family: var(--mono);
+            font-size: 14px;
+            font-variant-numeric: tabular-nums;
+            color: var(--muted);
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--green);
+        }
+
+        .status-pill.lost {
+            color: var(--red);
+        }
+
+        .status-pill.paused {
+            color: var(--yellow);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .status-dot { animation: none; }
+        }
+
+        /* ---- Layout ---- */
+
+        main {
+            width: 100%;
+            padding: 20px 16px;
+        }
+
+        .strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--panel);
+            margin-bottom: 20px;
+        }
+
+        .strip .cell {
+            padding: 18px 22px;
+        }
+
+        .strip .cell + .cell {
+            border-left: 1px solid var(--border);
+        }
+
+        .label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+        }
+
+        .value {
+            margin-top: 2px;
+            font-family: var(--mono);
+            font-size: 32px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .value.status-ok {
+            font-size: 20px;
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sev-breakdown {
+            margin-top: 6px;
+            display: flex;
+            gap: 12px;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .sev-breakdown .sb-high { color: var(--red); }
+        .sev-breakdown .sb-medium { color: var(--yellow); }
+        .sev-breakdown .sb-low { color: var(--green); }
+        .sev-breakdown .sb-total { color: var(--muted); }
+
+        .columns {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--panel);
+            overflow: hidden;
+        }
+
+        .panel + .panel {
+            margin-top: 20px;
+        }
+
+        .panel-title {
+            padding: 13px 24px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            background: var(--panel-header);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .count-badge {
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 1px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+        }
+
+        /* ---- Filters ---- */
+
+        .filters {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-group .flabel {
+            margin-right: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--dim);
+        }
+
+        .chip {
+            padding: 4px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: none;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 12px;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .chip:hover {
+            color: var(--text);
+            border-color: var(--muted);
+        }
+
+        .chip.active {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .search-group {
+            margin-left: auto;
+        }
+
+        .search-input {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 13px;
+            padding: 5px 10px;
+            width: 170px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .search-input::placeholder {
+            color: var(--dim);
+        }
+
+        .chip.sev-HIGH.active {
+            color: var(--red);
+            border-color: var(--red);
+        }
+
+        .chip.sev-MEDIUM.active {
+            color: var(--yellow);
+            border-color: var(--yellow);
+        }
+
+        .chip.sev-LOW.active {
+            color: var(--green);
+            border-color: var(--green);
+        }
+
+        /* ---- Table ---- */
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 12px 24px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--dim);
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        th:hover {
+            color: var(--muted);
+        }
+
+        th .caret {
+            margin-left: 6px;
+            font-size: 10px;
+        }
+
+        td {
+            padding: 16px 24px;
+            font-size: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover td {
+            background: rgba(122, 162, 247, 0.04);
+        }
+
+        @keyframes row-flash {
+            from { background: rgba(122, 162, 247, 0.18); }
+            to { background: transparent; }
+        }
+
+        tbody tr.fresh td {
+            animation: row-flash 1.6s ease-out;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            tbody tr.fresh td { animation: none; }
+        }
+
+        .num {
+            text-align: right;
+            font-family: var(--mono);
+            font-size: 16px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        th.num {
+            text-align: right;
+        }
+
+        .ip {
+            font-family: var(--mono);
+            font-size: 16px;
+            color: var(--text);
+        }
+
+        .proto {
+            display: inline-block;
+            padding: 2px 9px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .empty {
+            padding: 26px 24px;
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--dim);
+        }
+
+        /* ---- Severity badges ---- */
+
+        .badge {
+            display: inline-block;
+            padding: 3px 11px;
+            border-radius: 4px;
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-LOW {
+            color: var(--green);
+            background: rgba(158, 206, 106, 0.1);
+            border: 1px solid rgba(158, 206, 106, 0.3);
+        }
+
+        .badge-MEDIUM {
+            color: var(--yellow);
+            background: rgba(224, 175, 104, 0.1);
+            border: 1px solid rgba(224, 175, 104, 0.3);
+        }
+
+        .badge-HIGH {
+            color: var(--red);
+            background: rgba(247, 118, 142, 0.1);
+            border: 1px solid rgba(247, 118, 142, 0.3);
+        }
+
+        /* ---- Latest alert ---- */
+
+        .alert-body {
+            padding: 20px 24px;
+        }
+
+        .alert-type {
+            font-family: var(--mono);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--red);
+        }
+
+        .alert-kv {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 8px 16px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .alert-kv dt {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .alert-kv dd {
+            margin: 0;
+            font-family: var(--mono);
+            font-size: 14px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ---- Chart ---- */
+
+        .chart-body {
+            padding: 18px 24px;
+            height: 260px;
+        }
+
+        /* ---- Toasts ---- */
+
+        .toasts {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 50;
+        }
+
+        .toast {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-left-width: 3px;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--text);
+            animation: toast-in 0.2s ease-out;
+        }
+
+        .toast-HIGH { border-left-color: var(--red); }
+        .toast-MEDIUM { border-left-color: var(--yellow); }
+        .toast-LOW { border-left-color: var(--green); }
+
+        .toast strong {
+            margin-right: 6px;
+        }
+
+        .toast-HIGH strong { color: var(--red); }
+        .toast-MEDIUM strong { color: var(--yellow); }
+        .toast-LOW strong { color: var(--green); }
+
+        .toast .t-proto {
+            color: var(--muted);
+        }
+
+        @keyframes toast-in {
+            from { transform: translateY(8px); opacity: 0; }
+            to { transform: none; opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .toast { animation: none; }
+        }
+
+        /* ---- History ---- */
+
+        .history-wrap {
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .history-table th,
+        .history-table td {
+            padding: 9px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .history-table th {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--dim);
+            position: sticky;
+            top: 0;
+            background: var(--panel-header);
+            z-index: 1;
+        }
+
+        .history-table td.time,
+        .history-table td.ports {
+            font-family: var(--mono);
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .history-table td.time {
+            color: var(--text);
+        }
+
+        @media (max-width: 800px) {
+            .columns {
+                grid-template-columns: 1fr;
+            }
+
+            .strip {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .strip .cell + .cell {
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+
+            .strip .cell:nth-child(even) {
+                border-left: 1px solid var(--border);
+            }
+
+            .brand-sub {
+                display: none;
+            }
+
+            .history-table th:nth-child(2),
+            .history-table td:nth-child(2) {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <span class="brand-name">CapCip<span class="dim">Cup</span></span>
+            <span class="brand-sub">Intrusion Detection System</span>
+        </div>
+        <div class="topbar-right">
+            <button class="tb-btn" id="export-btn" title="Download status snapshot (JSON)">
+                &#8681; JSON
+            </button>
+            <button class="tb-btn" id="pause-btn" title="Pause / resume live updates (key: P)">
+                II Pause
+            </button>
+            <span class="clock" id="clock">--:--:--</span>
+            <div class="status-pill" id="conn-status">
+                <span class="status-dot"></span>
+                <span id="conn-text">Live</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="strip">
+            <div class="cell">
+                <div class="label">Packets Processed</div>
+                <div class="value" id="packets">0</div>
+            </div>
+            <div class="cell">
+                <div class="label">Alerts Detected</div>
+                <div class="value" id="alerts">0</div>
+            </div>
+            <div class="cell">
+                <div class="label">Active Threats</div>
+                <div class="value" id="threat-count">0</div>
+                <div class="sev-breakdown" id="sev-breakdown"></div>
+            </div>
+            <div class="cell">
+                <div class="label">Engine</div>
+                <div class="value status-ok">
+                    <span class="status-dot"></span>
+                    Monitoring
+                </div>
+            </div>
+        </section>
+
+        <div class="columns">
+            <div>
+                <section class="panel">
+                    <div class="panel-title">
+                        <span>Threat Sources</span>
+                        <span class="count-badge" id="threat-badge">0</span>
+                    </div>
+
+                    <div class="filters">
+                        <div class="filter-group">
+                            <span class="flabel">Severity</span>
+                            <button class="chip sev-all active" data-sev="ALL">ALL</button>
+                            <button class="chip sev-HIGH" data-sev="HIGH">HIGH</button>
+                            <button class="chip sev-MEDIUM" data-sev="MEDIUM">MED</button>
+                            <button class="chip sev-LOW" data-sev="LOW">LOW</button>
+                        </div>
+                        <div class="filter-group">
+                            <span class="flabel">Proto</span>
+                            <button class="chip active" data-proto="ALL">ALL</button>
+                            <button class="chip" data-proto="TCP">TCP</button>
+                            <button class="chip" data-proto="UDP">UDP</button>
+                        </div>
+                        <div class="filter-group search-group">
+                            <span class="flabel">IP</span>
+                            <input type="text" id="threat-search" class="search-input"
+                                   placeholder="filter source ip..." autocomplete="off"
+                                   spellcheck="false">
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-sort="ip">Source IP<span class="caret"></span></th>
+                                <th data-sort="proto">Proto<span class="caret"></span></th>
+                                <th data-sort="ports" class="num">Ports<span class="caret"></span></th>
+                                <th data-sort="severity">Severity<span class="caret"></span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="threats">
+                            <tr>
+                                <td colspan="4" class="empty">&gt; no active threats</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-title">Traffic &mdash; Packets / Second</div>
+                    <div class="chart-body">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-title">
+                        <span>Alerts / Minute</span>
+                        <span class="count-badge" id="trend-badge">60m</span>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="alertTrendChart"></canvas>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="panel">
+                    <div class="panel-title">Latest Alert</div>
+                    <div id="last-alert" class="empty">&gt; no alerts recorded</div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-title">
+                        <span>Alert History</span>
+                        <span class="count-badge" id="history-badge">0</span>
+                    </div>
+                    <div class="history-wrap">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Source</th>
+                                    <th>Type</th>
+                                    <th>Sev</th>
+                                    <th class="num">Ports</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history">
+                                <tr>
+                                    <td colspan="5" class="empty">&gt; no alerts recorded</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </main>
+
+    <div class="toasts" id="toasts"></div>
+
+    <script>
+        const performanceChart = new Chart(
+            document.getElementById("performanceChart"),
+            {
+                type: "line",
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        borderColor: "var(--accent)",
+                        backgroundColor: "rgba(31, 122, 140, 0.08)",
+                        borderWidth: 1.5,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: "var(--border)" },
+                            ticks: {
+                                color: "var(--dim)",
+                                font: {
+                                    family: "ui-monospace, Menlo, Consolas, monospace",
+                                    size: 11
+                                },
+                                maxTicksLimit: 6
+                            },
+                            border: { display: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: "var(--border)" },
+                            ticks: {
+                                color: "var(--dim)",
+                                precision: 0,
+                                font: {
+                                    family: "ui-monospace, Menlo, Consolas, monospace",
+                                    size: 11
+                                }
+                            },
+                            border: { display: false }
+                        }
+                    }
+                }
+            }
+        );
+
+        let previousPackets = null;
+        let latestData = null;
+        let seenThreatKeys = new Set();
+
+        const alertTrendChart = new Chart(
+            document.getElementById("alertTrendChart"),
+            {
+                type: "bar",
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: "rgba(122, 162, 247, 0.55)",
+                        borderRadius: 2,
+                        maxBarThickness: 18
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: "#1a1e30",
+                            borderColor: "#292e42",
+                            borderWidth: 1,
+                            titleColor: "#c0caf5",
+                            bodyColor: "#c0caf5",
+                            callbacks: {
+                                title: (items) => items[0].label,
+                                label: (item) => item.raw + " alert" + (item.raw === 1 ? "" : "s")
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                color: "#414868",
+                                font: {
+                                    family: "ui-monospace, Menlo, Consolas, monospace",
+                                    size: 10
+                                },
+                                autoSkip: true,
+                                maxRotation: 0,
+                                maxTicksLimit: 8
+                            },
+                            border: { display: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: "#292e42" },
+                            ticks: {
+                                color: "#414868",
+                                precision: 0,
+                                font: {
+                                    family: "ui-monospace, Menlo, Consolas, monospace",
+                                    size: 10
+                                }
+                            },
+                            border: { display: false }
+                        }
+                    }
+                }
+            }
+        );
+
+        // Live controls
+        let paused = false;
+        let connAlive = true;
+        let searchQuery = "";
+        let firstLoadDone = false;
+
+        // Filter + sort state
+        let sevFilter = "ALL";
+        let protoFilter = "ALL";
+        let sortKey = "severity";
+        let sortDir = -1; // -1 desc, 1 asc
+
+        const SEV_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+
+        function escapeHtml(value) {
+            const div = document.createElement("div");
+            div.textContent = String(value);
+            return div.innerHTML;
+        }
+
+        function updateClock() {
+            document.getElementById("clock").textContent =
+                new Date().toLocaleTimeString();
+        }
+
+        function updatePill() {
+            const pill = document.getElementById("conn-status");
+            const text = document.getElementById("conn-text");
+
+            pill.classList.remove("lost", "paused");
+
+            if (paused) {
+                pill.classList.add("paused");
+                text.textContent = "Paused";
+            } else if (connAlive) {
+                text.textContent = "Live";
+            } else {
+                pill.classList.add("lost");
+                text.textContent = "Connection Lost";
+            }
+        }
+
+        function showToast(item) {
+            const box = document.getElementById("toasts");
+
+            const el = document.createElement("div");
+            el.className = "toast toast-" + item.severity;
+            el.innerHTML =
+                `<strong>${escapeHtml(item.severity)}</strong> ` +
+                `${escapeHtml(item.source_ip)} ` +
+                `<span class="t-proto">${escapeHtml(item.protocol)}</span> ` +
+                `${item.unique_ports} ports`;
+
+            box.appendChild(el);
+
+            while (box.children.length > 3) {
+                box.removeChild(box.firstChild);
+            }
+
+            setTimeout(() => el.remove(), 6000);
+        }
+
+        function renderThreats(data) {
+            let items = data.threats.slice();
+
+            if (sevFilter !== "ALL") {
+                items = items.filter(t => t.severity === sevFilter);
+            }
+
+            if (protoFilter !== "ALL") {
+                items = items.filter(t => t.protocol === protoFilter);
+            }
+
+            if (searchQuery) {
+                items = items.filter(t =>
+                    t.source_ip.toLowerCase().includes(searchQuery));
+            }
+
+            items.sort((a, b) => {
+                let va, vb;
+                switch (sortKey) {
+                    case "ip":
+                        va = a.source_ip; vb = b.source_ip;
+                        return va.localeCompare(vb) * sortDir;
+                    case "proto":
+                        va = a.protocol; vb = b.protocol;
+                        return va.localeCompare(vb) * sortDir;
+                    case "ports":
+                        va = a.unique_ports; vb = b.unique_ports;
+                        break;
+                    default:
+                        va = SEV_RANK[a.severity] || 0;
+                        vb = SEV_RANK[b.severity] || 0;
+                }
+                return (va - vb) * sortDir;
+            });
+
+            const tbody = document.getElementById("threats");
+
+            if (items.length === 0) {
+                tbody.innerHTML =
+                    '<tr><td colspan="4" class="empty">&gt; no matching threats</td></tr>';
+                return;
+            }
+
+            const currentKeys = new Set(
+                data.threats.map(t => t.source_ip + "/" + t.protocol));
+
+            tbody.innerHTML = items.map(item => {
+                const key = item.source_ip + "/" + item.protocol;
+                const fresh = !seenThreatKeys.has(key);
+                return `
+                    <tr class="${fresh ? "fresh" : ""}">
+                        <td class="ip">${escapeHtml(item.source_ip)}</td>
+                        <td><span class="proto">${escapeHtml(item.protocol)}</span></td>
+                        <td class="num">${item.unique_ports}</td>
+                        <td><span class="badge badge-${escapeHtml(item.severity)}">${escapeHtml(item.severity)}</span></td>
+                    </tr>
+                `;
+            }).join("");
+
+            seenThreatKeys = currentKeys;
+
+            // Update sort carets
+            document.querySelectorAll("th[data-sort]").forEach(th => {
+                const caret = th.querySelector(".caret");
+                caret.textContent =
+                    th.dataset.sort === sortKey ? (sortDir === -1 ? "▼" : "▲") : "";
+            });
+        }
+
+        function renderStrip(data) {
+            document.getElementById("packets").textContent =
+                data.packets_processed;
+            document.getElementById("alerts").textContent =
+                data.alerts_detected;
+            document.getElementById("threat-count").textContent =
+                data.threats.length;
+            document.getElementById("threat-badge").textContent =
+                data.threats.length;
+
+            const counts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+            let totalPorts = 0;
+            data.threats.forEach(t => {
+                if (counts[t.severity] !== undefined) counts[t.severity]++;
+                totalPorts += t.unique_ports;
+            });
+
+            document.getElementById("sev-breakdown").innerHTML = `
+                <span class="sb-high">H ${counts.HIGH}</span>
+                <span class="sb-medium">M ${counts.MEDIUM}</span>
+                <span class="sb-low">L ${counts.LOW}</span>
+                <span class="sb-total">&#931; ${totalPorts} ports</span>
+            `;
+        }
+
+        function renderLastAlert(data) {
+            const alert = document.getElementById("last-alert");
+
+            if (!data.last_alert) {
+                alert.className = "empty";
+                alert.textContent = "> no alerts recorded";
+            } else {
+                alert.className = "alert-body";
+                alert.innerHTML = `
+                    <div class="alert-type">${escapeHtml(data.last_alert.type)}</div>
+                    <dl class="alert-kv">
+                        <dt>Source</dt>
+                        <dd>${escapeHtml(data.last_alert.source_ip)}</dd>
+                        <dt>Ports</dt>
+                        <dd>${data.last_alert.unique_ports}</dd>
+                        <dt>Severity</dt>
+                        <dd><span class="badge badge-${escapeHtml(data.last_alert.severity)}">${escapeHtml(data.last_alert.severity)}</span></dd>
+                    </dl>
+                `;
+            }
+        }
+
+        function renderHistory(data) {
+            const tbody = document.getElementById("history");
+            const badge = document.getElementById("history-badge");
+            const items = data.alert_history || [];
+
+            badge.textContent = items.length;
+
+            if (items.length === 0) {
+                tbody.innerHTML =
+                    '<tr><td colspan="5" class="empty">&gt; no alerts recorded</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.slice().reverse().map(a => `
+                <tr>
+                    <td class="time">${escapeHtml(formatTs(a.timestamp))}</td>
+                    <td class="ip">${escapeHtml(a.source_ip)}</td>
+                    <td>${escapeHtml(a.type)}</td>
+                    <td><span class="badge badge-${escapeHtml(a.severity)}">${escapeHtml(a.severity)}</span></td>
+                    <td class="ports">${a.unique_ports}</td>
+                </tr>
+            `).join("");
+        }
+
+        function renderTrend(data) {
+            const trend = data.alert_trend || [];
+            const badge = document.getElementById("trend-badge");
+            badge.textContent = trend.length + "m";
+
+            alertTrendChart.data.labels = trend.map(b => b.minute.slice(-5));
+            alertTrendChart.data.datasets[0].data = trend.map(b => b.count);
+            alertTrendChart.update();
+        }
+
+        function formatTs(iso) {
+            if (!iso) return "?";
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return iso;
+            return d.toLocaleTimeString();
+        }
+
+        function render() {
+            if (!latestData) return;
+            renderStrip(latestData);
+            renderThreats(latestData);
+            renderLastAlert(latestData);
+            renderHistory(latestData);
+            renderTrend(latestData);
+        }
+
+        async function refresh() {
+            if (paused) return;
+
+            try {
+                const response = await fetch("/api/status");
+                const data = await response.json();
+                connAlive = true;
+                updatePill();
+                latestData = data;
+
+                // Toast untuk threat baru (skip load pertama)
+                if (firstLoadDone) {
+                    data.threats.forEach(t => {
+                        const key = t.source_ip + "/" + t.protocol;
+                        if (!seenThreatKeys.has(key)) {
+                            showToast(t);
+                        }
+                    });
+                }
+                firstLoadDone = true;
+
+                // Calculate packets/sec from the existing API packet counter.
+                let packetsPerSecond = 0;
+
+                if (previousPackets !== null) {
+                    packetsPerSecond = Math.max(
+                        0,
+                        data.packets_processed - previousPackets
+                    );
+                }
+
+                previousPackets = data.packets_processed;
+
+                performanceChart.data.labels.push(
+                    new Date().toLocaleTimeString()
+                );
+                performanceChart.data.datasets[0].data.push(packetsPerSecond);
+
+                // Keep the last 30 seconds on screen.
+                if (performanceChart.data.labels.length > 30) {
+                    performanceChart.data.labels.shift();
+                    performanceChart.data.datasets[0].data.shift();
+                }
+
+                performanceChart.update();
+
+                render();
+            } catch (err) {
+                connAlive = false;
+                updatePill();
+            }
+        }
+
+        // Filter chips
+        document.querySelectorAll(".chip[data-sev]").forEach(chip => {
+            chip.addEventListener("click", () => {
+                sevFilter = chip.dataset.sev;
+                document.querySelectorAll(".chip[data-sev]").forEach(c =>
+                    c.classList.toggle("active", c === chip));
+                render();
+            });
+        });
+
+        document.querySelectorAll(".chip[data-proto]").forEach(chip => {
+            chip.addEventListener("click", () => {
+                protoFilter = chip.dataset.proto;
+                document.querySelectorAll(".chip[data-proto]").forEach(c =>
+                    c.classList.toggle("active", c === chip));
+                render();
+            });
+        });
+
+        // Search by source IP
+        document.getElementById("threat-search").addEventListener("input", e => {
+            searchQuery = e.target.value.trim().toLowerCase();
+            render();
+        });
+
+        // Pause / resume live updates
+        const pauseBtn = document.getElementById("pause-btn");
+
+        pauseBtn.addEventListener("click", () => {
+            paused = !paused;
+            pauseBtn.textContent = paused ? "> Resume" : "II Pause";
+            previousPackets = null; // avoid packets/sec spike on resume
+            updatePill();
+        });
+
+        // Export current status snapshot
+        document.getElementById("export-btn").addEventListener("click", () => {
+            if (!latestData) return;
+
+            const blob = new Blob(
+                [JSON.stringify(latestData, null, 2)],
+                { type: "application/json" }
+            );
+
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "capcipcup-status-"
+                + new Date().toISOString().replace(/[:.]/g, "-")
+                + ".json";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(a.href);
+        });
+
+        // Keyboard shortcuts: / focus search, P pause, Esc clear search
+        document.addEventListener("keydown", e => {
+            const tag = e.target.tagName;
+
+            if (tag === "INPUT" || tag === "TEXTAREA") {
+                if (e.key === "Escape") {
+                    e.target.value = "";
+                    searchQuery = "";
+                    render();
+                    e.target.blur();
+                }
+                return;
+            }
+
+            if (e.key === "/") {
+                e.preventDefault();
+                document.getElementById("threat-search").focus();
+            } else if (e.key === "p" || e.key === "P") {
+                pauseBtn.click();
+            }
+        });
+
+        // Sortable headers
+        document.querySelectorAll("th[data-sort]").forEach(th => {
+            th.addEventListener("click", () => {
+                if (sortKey === th.dataset.sort) {
+                    sortDir = -sortDir;
+                } else {
+                    sortKey = th.dataset.sort;
+                    sortDir = -1;
+                }
+                render();
+            });
+        });
+
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        refresh();
+        setInterval(refresh, 1000);
+    </script>
+</body>
+</html>

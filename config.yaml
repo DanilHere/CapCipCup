@@ -1,0 +1,23 @@
+# CapCipCup central configuration.
+# Change values here instead of editing Python code.
+
+sniffing:
+  interface: wlan0
+
+detection:
+  # Alert when unique destination ports exceed this number.
+  detection_threshold: 10
+  # A scan session ends after this many seconds of inactivity per source IP.
+  session_timeout: 5.0
+  # Only destination ports up to this value count as scanned ports.
+  # Replies to our own ephemeral client ports (32768-65535), like local
+  # DNS responses from the router, are ignored so they never look like
+  # a port scan.
+  well_known_port_max: 1024
+
+severity:
+  # unique_ports >= high_min    -> HIGH
+  # unique_ports >= medium_min  -> MEDIUM
+  # otherwise                   -> LOW
+  medium_min: 21
+  high_min: 41

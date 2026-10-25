@@ -18,7 +18,7 @@ them through a terminal dashboard and a LAN web dashboard.
 - Severity scoring: LOW (11–20 ports), MEDIUM (21–40), HIGH (41+)
 - Central configuration (`config.yaml`) with built-in defaults fallback
 - Rich terminal dashboard (live, 4 refreshes per second)
-- LAN web dashboard (Tokyo Night themed, sortable, filterable)
+- LAN web dashboard (Sortable, filterable)
 - REST API: `/api/status`, `/api/alerts?since=<ISO timestamp>`
 - Alert trend chart (alerts per minute) and alert history table
 - Persistent event log (`logs/alerts.json`)
